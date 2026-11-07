@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_title">Nanit Birthday</string>
+    <string name="add_baby">Add baby</string>
+    <string name="no_babies_title">No babies yet</string>
+    <string name="no_babies_body">Add a baby to start tracking a birthday.</string>
+    <string name="unnamed_baby">Unnamed baby</string>
+    <string name="birthday_not_set">Birthday not set</string>
+    <string name="baby_picture">Baby picture</string>
+    <string name="name_label">Name</string>
+    <string name="birthday_label">Birthday</string>
+    <string name="select_birthday">Select birthday</string>
+    <string name="show_birthday_screen">Show birthday screen</string>
+    <string name="back">Back</string>
+    <string name="close">Close</string>
+    <string name="delete_baby">Delete baby</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+</resources>
