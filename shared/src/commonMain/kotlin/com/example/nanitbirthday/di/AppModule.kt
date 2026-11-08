@@ -4,8 +4,10 @@ import com.example.nanitbirthday.data.BabyProfileRepository
 import com.example.nanitbirthday.data.DataStoreBabyProfileRepository
 import com.example.nanitbirthday.platform.FileKitImagePicker
 import com.example.nanitbirthday.platform.ImagePicker
+import com.example.nanitbirthday.ui.birthday.BirthdayViewModel
 import com.example.nanitbirthday.ui.details.ProfileDetailsViewModel
 import com.example.nanitbirthday.ui.profiles.ProfileListViewModel
+import kotlin.random.Random
 import kotlin.time.Clock
 import kotlinx.serialization.json.Json
 import org.koin.core.module.dsl.singleOf
@@ -22,5 +24,8 @@ val appModule = module {
     viewModelOf(::ProfileListViewModel)
     viewModel { (profileId: String) ->
         ProfileDetailsViewModel(profileId, get(), get(), get(), get())
+    }
+    viewModel { (profileId: String) ->
+        BirthdayViewModel(profileId, get(), get(), get(), Random.Default)
     }
 }

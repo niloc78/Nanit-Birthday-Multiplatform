@@ -15,6 +15,15 @@
     <string name="show_birthday_screen">Show birthday screen</string>
     <string name="back">Back</string>
     <string name="close">Close</string>
+    <string name="today_name_is">TODAY %1$s IS</string>
+    <plurals name="months_old">
+        <item quantity="one">MONTH OLD</item>
+        <item quantity="other">MONTHS OLD</item>
+    </plurals>
+    <plurals name="years_old">
+        <item quantity="one">YEAR OLD</item>
+        <item quantity="other">YEARS OLD</item>
+    </plurals>
     <string name="delete_baby">Delete baby</string>
     <string name="ok">OK</string>
     <string name="cancel">Cancel</string>

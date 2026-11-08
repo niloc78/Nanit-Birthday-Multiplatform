@@ -33,8 +33,11 @@ fun App() {
                     onShowBirthday = { navController.navigate(BirthdayRoute(route.profileId)) },
                 )
             }
-            composable<BirthdayRoute> {
-                BirthdayScreen(onClose = { navController.popBackStack() })
+            composable<BirthdayRoute> { entry ->
+                BirthdayScreen(
+                    profileId = entry.toRoute<BirthdayRoute>().profileId,
+                    onClose = { navController.popBackStack() },
+                )
             }
         }
     }
