@@ -3,7 +3,9 @@ package com.example.nanitbirthday.di
 import com.example.nanitbirthday.data.BabyProfileRepository
 import com.example.nanitbirthday.data.DataStoreBabyProfileRepository
 import com.example.nanitbirthday.platform.FileKitImagePicker
+import com.example.nanitbirthday.platform.FileKitImageSharer
 import com.example.nanitbirthday.platform.ImagePicker
+import com.example.nanitbirthday.platform.ImageSharer
 import com.example.nanitbirthday.ui.birthday.BirthdayViewModel
 import com.example.nanitbirthday.ui.details.ProfileDetailsViewModel
 import com.example.nanitbirthday.ui.profiles.ProfileListViewModel
@@ -20,12 +22,13 @@ val appModule = module {
     single { Json { ignoreUnknownKeys = true } }
     singleOf(::DataStoreBabyProfileRepository) bind BabyProfileRepository::class
     singleOf(::FileKitImagePicker) bind ImagePicker::class
+    singleOf(::FileKitImageSharer) bind ImageSharer::class
     single<Clock> { Clock.System }
     viewModelOf(::ProfileListViewModel)
     viewModel { (profileId: String) ->
         ProfileDetailsViewModel(profileId, get(), get(), get(), get())
     }
     viewModel { (profileId: String) ->
-        BirthdayViewModel(profileId, get(), get(), get(), get(), Random.Default)
+        BirthdayViewModel(profileId, get(), get(), get(), get(), get(), Random.Default)
     }
 }

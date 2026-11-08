@@ -1,5 +1,6 @@
 package com.example.nanitbirthday.ui.birthday
 
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nanitbirthday.data.BabyProfileRepository
@@ -8,6 +9,7 @@ import com.example.nanitbirthday.data.replace
 import com.example.nanitbirthday.domain.BabyProfile
 import com.example.nanitbirthday.domain.ageOn
 import com.example.nanitbirthday.platform.ImagePicker
+import com.example.nanitbirthday.platform.ImageSharer
 import kotlin.random.Random
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +27,7 @@ class BirthdayViewModel(
     private val clock: Clock,
     private val pictureStore: PictureStore,
     private val imagePicker: ImagePicker,
+    private val imageSharer: ImageSharer,
     random: Random,
 ) : ViewModel() {
 
@@ -40,6 +43,10 @@ class BirthdayViewModel(
 
     fun onTakePhoto() {
         replacePicture { imagePicker.takePhoto() }
+    }
+
+    fun onShare(image: ImageBitmap) {
+        viewModelScope.launch { imageSharer.share(image) }
     }
 
     private fun replacePicture(pick: suspend () -> ByteArray?) {

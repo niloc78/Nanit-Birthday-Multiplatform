@@ -1,11 +1,13 @@
 package com.example.nanitbirthday.ui.birthday
 
+import androidx.compose.ui.graphics.ImageBitmap
 import app.cash.turbine.test
 import com.example.nanitbirthday.data.BabyProfileRepository
 import com.example.nanitbirthday.data.PictureStore
 import com.example.nanitbirthday.domain.Age
 import com.example.nanitbirthday.domain.BabyProfile
 import com.example.nanitbirthday.platform.ImagePicker
+import com.example.nanitbirthday.platform.ImageSharer
 import dev.mokkery.MockMode
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
@@ -54,6 +56,7 @@ class BirthdayViewModelTest {
         every { profiles } returns storedProfiles
     }
     private val imagePicker = mock<ImagePicker>()
+    private val imageSharer = mock<ImageSharer>(MockMode.autoUnit)
 
     @BeforeTest
     fun setUp() {
@@ -127,12 +130,23 @@ class BirthdayViewModelTest {
         verifySuspend(VerifyMode.not) { repository.save(any()) }
     }
 
+    @Test
+    fun shareHandsTheImageToTheSharer() = runTest {
+        val image = mock<ImageBitmap>()
+
+        viewModel(Random(1)).onShare(image)
+        advanceUntilIdle()
+
+        verifySuspend { imageSharer.share(image) }
+    }
+
     private fun viewModel(random: Random) = BirthdayViewModel(
         profileId = "baby-1",
         repository = repository,
         clock = clock,
         pictureStore = pictureStore,
         imagePicker = imagePicker,
+        imageSharer = imageSharer,
         random = random,
     )
 }

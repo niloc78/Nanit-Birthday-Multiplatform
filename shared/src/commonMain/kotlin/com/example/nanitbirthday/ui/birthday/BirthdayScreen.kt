@@ -16,10 +16,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,17 +30,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -49,6 +60,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -59,6 +73,7 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlinx.coroutines.launch
 import nanitbirthday.shared.generated.resources.Res
 import nanitbirthday.shared.generated.resources.baby_picture
 import nanitbirthday.shared.generated.resources.baby_placeholder
@@ -80,6 +95,7 @@ import nanitbirthday.shared.generated.resources.number_6
 import nanitbirthday.shared.generated.resources.number_7
 import nanitbirthday.shared.generated.resources.number_8
 import nanitbirthday.shared.generated.resources.number_9
+import nanitbirthday.shared.generated.resources.share_the_news
 import nanitbirthday.shared.generated.resources.swirls_left
 import nanitbirthday.shared.generated.resources.today_name_is
 import nanitbirthday.shared.generated.resources.years_old
@@ -114,6 +130,7 @@ private val PictureToLogo = 15.dp
 private val CameraBadgeSize = 36.dp
 private const val CameraBadgeAngle = PI / 4
 private val CloseButtonPadding = 8.dp
+private val ShareButtonBottomPadding = 16.dp
 
 private val numerals = listOf(
     Res.drawable.number_0, Res.drawable.number_1, Res.drawable.number_2, Res.drawable.number_3,
@@ -137,6 +154,7 @@ fun BirthdayScreen(
         onClose = onClose,
         onPickFromGallery = viewModel::onPickFromGallery,
         onTakePhoto = viewModel::onTakePhoto,
+        onShare = viewModel::onShare,
     )
 }
 
@@ -146,12 +164,35 @@ private fun BirthdayScreen(
     onClose: () -> Unit,
     onPickFromGallery: () -> Unit,
     onTakePhoto: () -> Unit,
+    onShare: (ImageBitmap) -> Unit,
 ) {
     var showPicturePicker by rememberSaveable { mutableStateOf(false) }
+    var pictureBounds by remember { mutableStateOf<IntRect?>(null) }
+    val cardLayer = rememberGraphicsLayer()
+    val scope = rememberCoroutineScope()
     val background = (state as? BirthdayUiState.Ready)?.theme?.background ?: MaterialTheme.colorScheme.background
     Box(modifier = Modifier.fillMaxSize().background(background)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .navigationBarsPadding()
+                .drawWithContent {
+                    cardLayer.record { this@drawWithContent.drawContent() }
+                    drawLayer(cardLayer)
+                }
+                .background(background),
+        ) {
+            if (state is BirthdayUiState.Ready) {
+                BirthdayContent(state = state, onPicturePlaced = { pictureBounds = it })
+            }
+        }
         if (state is BirthdayUiState.Ready) {
-            BirthdayContent(state = state, onChangePicture = { showPicturePicker = true })
+            CardControls(
+                theme = state.theme,
+                pictureBounds = pictureBounds,
+                onChangePicture = { showPicturePicker = true },
+                onShare = { scope.launch { onShare(cardLayer.toImageBitmap()) } },
+            )
         }
         IconButton(
             onClick = onClose,
@@ -174,58 +215,99 @@ private fun BirthdayScreen(
 }
 
 @Composable
-private fun BirthdayContent(state: BirthdayUiState.Ready, onChangePicture: () -> Unit) {
+private fun BirthdayContent(state: BirthdayUiState.Ready, onPicturePlaced: (IntRect) -> Unit) {
     Image(
         painter = painterResource(state.theme.illustration),
         contentDescription = null,
         contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+        modifier = Modifier.fillMaxSize(),
         alignment = Alignment.BottomCenter,
     )
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
-        val scale = minOf(1f, maxWidth / FrameWidth, maxHeight / FrameHeight)
-        val density = LocalDensity.current
-        CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
-            BirthdayCard(state = state, onChangePicture = onChangePicture)
-        }
+    CardScale {
+        BirthdayCard(state = state, onPicturePlaced = onPicturePlaced)
     }
 }
 
 @Composable
-private fun BirthdayCard(state: BirthdayUiState.Ready, onChangePicture: () -> Unit) {
+private fun CardScale(content: @Composable () -> Unit) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+        val scale = minOf(1f, maxWidth / FrameWidth, maxHeight / FrameHeight)
+        val density = LocalDensity.current
+        CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale), content)
+    }
+}
+
+@Composable
+private fun CardControls(
+    theme: BirthdayTheme,
+    pictureBounds: IntRect?,
+    onChangePicture: () -> Unit,
+    onShare: () -> Unit,
+) {
+    CardScale {
+        if (pictureBounds != null) {
+            CameraBadge(
+                theme = theme,
+                onClick = onChangePicture,
+                modifier = Modifier.offset { cameraBadgeOffset(pictureBounds) },
+            )
+        }
+    }
+    Box(modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = ShareButtonBottomPadding)) {
+        ExtendedFloatingActionButton(
+            onClick = onShare,
+            containerColor = theme.accent,
+            contentColor = Color.White,
+            icon = { Icon(imageVector = Icons.Default.Share, contentDescription = null) },
+            text = { Text(stringResource(Res.string.share_the_news)) },
+            modifier = Modifier.align(Alignment.BottomCenter),
+        )
+    }
+}
+
+private fun Density.cameraBadgeOffset(picture: IntRect): IntOffset {
+    val ringRadius = (picture.width - RingStroke.toPx()) / 2
+    val badge = CameraBadgeSize.toPx()
+    return IntOffset(
+        (picture.center.x + ringRadius * cos(CameraBadgeAngle) - badge / 2).roundToInt(),
+        (picture.center.y - ringRadius * sin(CameraBadgeAngle) - badge / 2).roundToInt(),
+    )
+}
+
+@Composable
+private fun BirthdayCard(state: BirthdayUiState.Ready, onPicturePlaced: (IntRect) -> Unit) {
     Layout(
         contents = listOf(
             { AgeHeader(name = state.name, age = state.age) },
-            { BabyPicture(picturePath = state.picturePath, theme = state.theme) },
+            {
+                BabyPicture(
+                    picturePath = state.picturePath,
+                    theme = state.theme,
+                    modifier = Modifier.onPlaced { onPicturePlaced(IntRect(it.positionInParent().round(), it.size)) },
+                )
+            },
             { Image(painter = painterResource(Res.drawable.nanit_logo), contentDescription = null) },
-            { CameraBadge(theme = state.theme, onClick = onChangePicture) },
         ),
         modifier = Modifier.fillMaxSize(),
-    ) { (header, picture, logo, badge), constraints ->
+    ) { (header, picture, logo), constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val pictureSize = minOf(PictureSize.roundToPx(), constraints.maxWidth - 2 * PictureMinSidePadding.roundToPx())
         val headerPlaceable = header.first().measure(loose)
         val picturePlaceable = picture.first().measure(Constraints.fixed(pictureSize, pictureSize))
         val logoPlaceable = logo.first().measure(loose)
-        val badgePlaceable = badge.first().measure(loose)
         val pictureWithLogoHeight = pictureSize + PictureToLogo.roundToPx() + logoPlaceable.height
         val pictureY = maxOf(
             (constraints.maxHeight - pictureWithLogoHeight) / 2,
             HeaderMinTopGap.roundToPx() + headerPlaceable.height + PictureMinTopGap.roundToPx(),
         )
         val headerY = (pictureY - headerPlaceable.height) / 2
-        val pictureX = (constraints.maxWidth - pictureSize) / 2
-        val ringRadius = (pictureSize - RingStroke.toPx()) / 2
-        val badgeX = pictureX + pictureSize / 2 + ringRadius * cos(CameraBadgeAngle) - badgePlaceable.width / 2
-        val badgeY = pictureY + pictureSize / 2 - ringRadius * sin(CameraBadgeAngle) - badgePlaceable.height / 2
         layout(constraints.maxWidth, constraints.maxHeight) {
             headerPlaceable.placeRelative((constraints.maxWidth - headerPlaceable.width) / 2, headerY)
-            picturePlaceable.placeRelative(pictureX, pictureY)
+            picturePlaceable.placeRelative((constraints.maxWidth - pictureSize) / 2, pictureY)
             logoPlaceable.placeRelative(
                 (constraints.maxWidth - logoPlaceable.width) / 2,
                 pictureY + pictureSize + PictureToLogo.roundToPx(),
             )
-            badgePlaceable.placeRelative(badgeX.roundToInt(), badgeY.roundToInt())
         }
     }
 }
@@ -269,9 +351,9 @@ private fun AgeHeader(name: String, age: Age) {
 }
 
 @Composable
-private fun BabyPicture(picturePath: String?, theme: BirthdayTheme) {
+private fun BabyPicture(picturePath: String?, theme: BirthdayTheme, modifier: Modifier = Modifier) {
     Box(
-        modifier = Modifier.fillMaxSize().clip(CircleShape).background(theme.pictureFill),
+        modifier = modifier.fillMaxSize().clip(CircleShape).background(theme.pictureFill),
         contentAlignment = Alignment.Center,
     ) {
         if (picturePath != null) {
@@ -294,11 +376,11 @@ private fun BabyPicture(picturePath: String?, theme: BirthdayTheme) {
 }
 
 @Composable
-private fun CameraBadge(theme: BirthdayTheme, onClick: () -> Unit) {
+private fun CameraBadge(theme: BirthdayTheme, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Image(
         painter = painterResource(Res.drawable.ic_camera_add),
         contentDescription = stringResource(Res.string.change_picture),
-        modifier = Modifier
+        modifier = modifier
             .size(CameraBadgeSize)
             .clip(CircleShape)
             .background(theme.accent)
@@ -321,6 +403,7 @@ private fun BirthdayScreenFoxPreview() {
             onClose = {},
             onPickFromGallery = {},
             onTakePhoto = {},
+            onShare = {},
         )
     }
 }
@@ -334,6 +417,7 @@ private fun BirthdayScreenElephantPreview() {
             onClose = {},
             onPickFromGallery = {},
             onTakePhoto = {},
+            onShare = {},
         )
     }
 }
@@ -347,6 +431,7 @@ private fun BirthdayScreenPelicanPreview() {
             onClose = {},
             onPickFromGallery = {},
             onTakePhoto = {},
+            onShare = {},
         )
     }
 }
