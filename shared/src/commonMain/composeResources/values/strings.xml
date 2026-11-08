@@ -6,6 +6,9 @@
     <string name="unnamed_baby">Unnamed baby</string>
     <string name="birthday_not_set">Birthday not set</string>
     <string name="baby_picture">Baby picture</string>
+    <string name="change_picture">Change picture</string>
+    <string name="choose_from_gallery">Choose from gallery</string>
+    <string name="take_photo">Take a photo</string>
     <string name="name_label">Name</string>
     <string name="birthday_label">Birthday</string>
     <string name="select_birthday">Select birthday</string>

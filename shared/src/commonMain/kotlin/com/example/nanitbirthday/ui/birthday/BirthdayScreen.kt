@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import nanitbirthday.shared.generated.resources.Res
 import nanitbirthday.shared.generated.resources.close
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 
 @Composable
 fun BirthdayScreen(onClose: () -> Unit) {
@@ -35,5 +36,13 @@ fun BirthdayScreen(onClose: () -> Unit) {
                 contentDescription = stringResource(Res.string.close),
             )
         }
+    }
+}
+
+@Preview
+@Composable
+private fun BirthdayScreenPreview() {
+    MaterialTheme {
+        BirthdayScreen(onClose = {})
     }
 }

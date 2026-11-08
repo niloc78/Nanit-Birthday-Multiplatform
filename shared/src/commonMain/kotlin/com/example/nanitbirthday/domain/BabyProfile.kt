@@ -1,7 +1,9 @@
 package com.example.nanitbirthday.domain
 
 import kotlinx.datetime.LocalDate
+import kotlinx.serialization.Serializable
 
+@Serializable
 data class BabyProfile(
     val id: String,
     val name: String = "",

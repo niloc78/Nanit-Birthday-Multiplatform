@@ -42,6 +42,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
+            implementation(libs.koin.android)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -59,6 +60,11 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.material.icons.core)
+            implementation(libs.datastore.core.okio)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.filekit.dialogs.compose)
+            implementation(libs.coil.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

@@ -28,9 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.nanitbirthday.domain.BabyProfile
 import com.example.nanitbirthday.ui.common.ProfilePicture
 import com.example.nanitbirthday.ui.common.toDisplayText
+import kotlinx.datetime.LocalDate
 import nanitbirthday.shared.generated.resources.Res
 import nanitbirthday.shared.generated.resources.add_baby
 import nanitbirthday.shared.generated.resources.app_title
@@ -39,9 +39,9 @@ import nanitbirthday.shared.generated.resources.no_babies_body
 import nanitbirthday.shared.generated.resources.no_babies_title
 import nanitbirthday.shared.generated.resources.unnamed_baby
 import org.jetbrains.compose.resources.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import org.koin.compose.viewmodel.koinViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileListScreen(
     onOpenProfile: (String) -> Unit,
@@ -49,13 +49,27 @@ fun ProfileListScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
+    ProfileListScreen(
+        state = state,
+        onAddBaby = { onOpenProfile(viewModel.newProfileId()) },
+        onOpenProfile = onOpenProfile,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ProfileListScreen(
+    state: ProfileListUiState,
+    onAddBaby: () -> Unit,
+    onOpenProfile: (String) -> Unit,
+) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(title = { Text(stringResource(Res.string.app_title)) })
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { onOpenProfile(viewModel.newProfileId()) },
+                onClick = onAddBaby,
                 icon = { Icon(Icons.Default.Add, contentDescription = null) },
                 text = { Text(stringResource(Res.string.add_baby)) },
             )
@@ -71,7 +85,7 @@ fun ProfileListScreen(
 
 @Composable
 private fun ProfileList(
-    profiles: List<BabyProfile>,
+    profiles: List<ProfileListItem>,
     padding: PaddingValues,
     onOpenProfile: (String) -> Unit,
 ) {
@@ -90,10 +104,10 @@ private fun ProfileList(
 }
 
 @Composable
-private fun ProfileRow(profile: BabyProfile, onClick: () -> Unit) {
+private fun ProfileRow(profile: ProfileListItem, onClick: () -> Unit) {
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
-        leadingContent = { ProfilePicture(size = 48.dp) },
+        leadingContent = { ProfilePicture(picturePath = profile.picturePath, size = 48.dp) },
         headlineContent = {
             Text(profile.name.ifBlank { stringResource(Res.string.unnamed_baby) })
         },
@@ -122,5 +136,30 @@ private fun EmptyProfiles(padding: PaddingValues) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+    }
+}
+
+@Preview
+@Composable
+private fun ProfileListScreenPreview() {
+    MaterialTheme {
+        ProfileListScreen(
+            state = ProfileListUiState(
+                profiles = listOf(
+                    ProfileListItem(id = "a", name = "Mia", birthday = LocalDate(2026, 2, 1), picturePath = null),
+                    ProfileListItem(id = "b", name = "", birthday = null, picturePath = null),
+                ),
+            ),
+            onAddBaby = {},
+            onOpenProfile = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun EmptyProfileListScreenPreview() {
+    MaterialTheme {
+        ProfileListScreen(state = ProfileListUiState(), onAddBaby = {}, onOpenProfile = {})
     }
 }

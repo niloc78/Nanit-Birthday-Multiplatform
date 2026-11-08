@@ -8,6 +8,7 @@ sealed interface ProfileDetailsUiState {
     data class Ready(
         val name: String,
         val birthday: LocalDate?,
+        val picturePath: String?,
         val latestBirthday: LocalDate,
         val canShowBirthday: Boolean,
     ) : ProfileDetailsUiState

@@ -1,29 +1,37 @@
 package com.example.nanitbirthday.ui.profiles
 
 import app.cash.turbine.test
-import com.example.nanitbirthday.data.InMemoryBabyProfileRepository
+import com.example.nanitbirthday.data.BabyProfileRepository
+import com.example.nanitbirthday.data.PictureStore
 import com.example.nanitbirthday.domain.BabyProfile
-import com.example.nanitbirthday.domain.ProfileIdGenerator
+import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
-import dev.mokkery.answering.sequentially
 import dev.mokkery.every
+import dev.mokkery.matcher.any
 import dev.mokkery.mock
-import dev.mokkery.verify
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.datetime.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileListViewModelTest {
 
-    private val idGenerator = mock<ProfileIdGenerator>()
+    private val repository = mock<BabyProfileRepository> {
+        every { profiles } returns flowOf(emptyList())
+    }
+    private val pictureStore = mock<PictureStore> {
+        every { pathOf(any()) } calls { (fileName: String) -> "/pictures/$fileName" }
+    }
 
     @BeforeTest
     fun setUp() {
@@ -36,43 +44,39 @@ class ProfileListViewModelTest {
     }
 
     @Test
-    fun startsEmptyThenShowsExistingProfiles() = runTest {
-        val existing = listOf(BabyProfile(id = "a", name = "Mia"), BabyProfile(id = "b"))
-        val viewModel = ProfileListViewModel(InMemoryBabyProfileRepository(existing), idGenerator)
+    fun startsEmptyThenShowsExistingProfilesWithPicturePaths() = runTest {
+        val birthday = LocalDate(2026, 2, 1)
+        every { repository.profiles } returns flowOf(
+            listOf(BabyProfile(id = "a", name = "Mia", birthday = birthday, pictureFile = "mia"), BabyProfile(id = "b")),
+        )
+        val viewModel = ProfileListViewModel(repository, pictureStore)
 
         viewModel.uiState.test {
             assertEquals(emptyList(), awaitItem().profiles)
-            assertEquals(existing, awaitItem().profiles)
+            assertEquals(
+                listOf(
+                    ProfileListItem(id = "a", name = "Mia", birthday = birthday, picturePath = "/pictures/mia"),
+                    ProfileListItem(id = "b", name = "", birthday = null, picturePath = null),
+                ),
+                awaitItem().profiles,
+            )
         }
     }
 
     @Test
     fun listReactsToRepositoryChanges() = runTest {
-        val repository = InMemoryBabyProfileRepository()
-        val viewModel = ProfileListViewModel(repository, idGenerator)
+        val profiles = MutableStateFlow(emptyList<BabyProfile>())
+        every { repository.profiles } returns profiles
+        val viewModel = ProfileListViewModel(repository, pictureStore)
 
         viewModel.uiState.test {
             assertEquals(emptyList(), awaitItem().profiles)
 
-            val mia = BabyProfile(id = "a", name = "Mia")
-            repository.save(mia)
-            assertEquals(listOf(mia), awaitItem().profiles)
+            profiles.value = listOf(BabyProfile(id = "a", name = "Mia"))
+            assertEquals(listOf(ProfileListItem(id = "a", name = "Mia", birthday = null, picturePath = null)), awaitItem().profiles)
 
-            repository.delete("a")
+            profiles.value = emptyList()
             assertEquals(emptyList(), awaitItem().profiles)
         }
-    }
-
-    @Test
-    fun eachNewProfileGetsItsOwnId() = runTest {
-        every { idGenerator.next() } sequentially {
-            returns("id-1")
-            returns("id-2")
-        }
-        val viewModel = ProfileListViewModel(InMemoryBabyProfileRepository(), idGenerator)
-
-        assertEquals("id-1", viewModel.newProfileId())
-        assertEquals("id-2", viewModel.newProfileId())
-        verify { idGenerator.next() }
     }
 }

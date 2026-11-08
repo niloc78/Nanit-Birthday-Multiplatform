@@ -3,19 +3,25 @@ package com.example.nanitbirthday.ui.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nanitbirthday.data.BabyProfileRepository
+import com.example.nanitbirthday.data.PictureStore
 import com.example.nanitbirthday.domain.BabyProfile
-import com.example.nanitbirthday.domain.TodayProvider
+import com.example.nanitbirthday.platform.ImagePicker
+import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.todayIn
 
 class ProfileDetailsViewModel(
     private val profileId: String,
     private val repository: BabyProfileRepository,
-    private val todayProvider: TodayProvider,
+    private val clock: Clock,
+    private val imagePicker: ImagePicker,
+    private val pictureStore: PictureStore,
 ) : ViewModel() {
 
     private var profile: BabyProfile? = null
@@ -37,8 +43,30 @@ class ProfileDetailsViewModel(
         edit { copy(birthday = birthday) }
     }
 
+    fun onPickFromGallery() {
+        replacePicture { imagePicker.pickFromGallery() }
+    }
+
+    fun onTakePhoto() {
+        replacePicture { imagePicker.takePhoto() }
+    }
+
     fun onDelete() {
-        viewModelScope.launch { repository.delete(profileId) }
+        val pictureFile = profile?.pictureFile
+        viewModelScope.launch {
+            pictureFile?.let { pictureStore.delete(it) }
+            repository.delete(profileId)
+        }
+    }
+
+    private fun replacePicture(pick: suspend () -> ByteArray?) {
+        viewModelScope.launch {
+            val bytes = pick() ?: return@launch
+            val previous = profile?.pictureFile
+            val fileName = pictureStore.save(bytes)
+            edit { copy(pictureFile = fileName) }
+            previous?.let { pictureStore.delete(it) }
+        }
     }
 
     private fun edit(change: BabyProfile.() -> BabyProfile) {
@@ -52,7 +80,8 @@ class ProfileDetailsViewModel(
         _uiState.value = ProfileDetailsUiState.Ready(
             name = current.name,
             birthday = current.birthday,
-            latestBirthday = todayProvider.today(),
+            picturePath = current.pictureFile?.let(pictureStore::pathOf),
+            latestBirthday = clock.todayIn(TimeZone.currentSystemDefault()),
             canShowBirthday = current.isComplete,
         )
     }
