@@ -5,6 +5,8 @@ Tech Stack:
 - FileKit for camera and gallery
 - DataStore + Okio for local caching of baby profile data (name, birthday, picture path). Pictures themselves stored on platform specific file system. 
 - Turbine and Mokkery for state testing and mocks (both support Multiplatform)
+- [Android demo](docs/android-nanit.mp4)
+- [iOS demo](docs/ios-nanit.mp4)
 
 This is a Kotlin Multiplatform project targeting Android, iOS.
 
