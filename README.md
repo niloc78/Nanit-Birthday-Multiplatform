@@ -1,3 +1,11 @@
+Tech Stack:
+- MVVM Compose + Compose Multiplatform to support both iOS and Android with shared UI
+- Koin for dependency injection and multiplatform support
+- Coil for loading images and support for downscaling to thumbnails + future support for network caching if necessary
+- FileKit for camera and gallery
+- DataStore + Okio for local caching of baby profile data (name, birthday, picture path). Pictures themselves stored on platform specific file system. 
+- Turbine and Mokkery for state testing and mocks (both support Multiplatform)
+
 This is a Kotlin Multiplatform project targeting Android, iOS.
 
 * [/iosApp](./iosApp/iosApp) contains an iOS application. Even if you’re sharing your UI with Compose Multiplatform,
