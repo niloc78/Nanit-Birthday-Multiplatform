@@ -15,6 +15,11 @@ interface PictureStore {
     fun pathOf(fileName: String): String
 }
 
+suspend fun PictureStore.replace(previous: String?, bytes: ByteArray, store: suspend (fileName: String) -> Unit) {
+    store(save(bytes))
+    previous?.let { delete(it) }
+}
+
 class FilePictureStore(
     private val directory: Path,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,

@@ -26,6 +26,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -225,6 +226,24 @@ class ProfileDetailsViewModelTest {
         assertNull(viewModel.ready().picturePath)
         verifySuspend(VerifyMode.not) { pictureStore.save(any()) }
         verifySuspend(VerifyMode.not) { repository.save(any()) }
+    }
+
+    @Test
+    fun pictureChangedElsewhereIsShown() = runTest {
+        val stored = MutableStateFlow(listOf(BabyProfile(id = "baby-1", name = "Mia", pictureFile = "old.jpg")))
+        every { repository.profiles } returns stored
+        val viewModel = viewModel()
+
+        viewModel.uiState.test {
+            assertEquals(ProfileDetailsUiState.Loading, awaitItem())
+            assertEquals("/pictures/old.jpg", awaitReady().picturePath)
+
+            stored.value = listOf(BabyProfile(id = "baby-1", name = "Mia", pictureFile = "new.jpg"))
+
+            val ready = awaitReady()
+            assertEquals("/pictures/new.jpg", ready.picturePath)
+            assertEquals("Mia", ready.name)
+        }
     }
 
     @Test

@@ -4,22 +4,27 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nanitbirthday.data.BabyProfileRepository
 import com.example.nanitbirthday.data.PictureStore
+import com.example.nanitbirthday.data.replace
 import com.example.nanitbirthday.domain.BabyProfile
 import com.example.nanitbirthday.domain.ageOn
+import com.example.nanitbirthday.platform.ImagePicker
 import kotlin.random.Random
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 
 class BirthdayViewModel(
-    profileId: String,
-    repository: BabyProfileRepository,
+    private val profileId: String,
+    private val repository: BabyProfileRepository,
     private val clock: Clock,
     private val pictureStore: PictureStore,
+    private val imagePicker: ImagePicker,
     random: Random,
 ) : ViewModel() {
 
@@ -28,6 +33,22 @@ class BirthdayViewModel(
     val uiState: StateFlow<BirthdayUiState> = repository.profiles
         .map { profiles -> profiles.firstOrNull { it.id == profileId }?.toUiState() ?: BirthdayUiState.Loading }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BirthdayUiState.Loading)
+
+    fun onPickFromGallery() {
+        replacePicture { imagePicker.pickFromGallery() }
+    }
+
+    fun onTakePhoto() {
+        replacePicture { imagePicker.takePhoto() }
+    }
+
+    private fun replacePicture(pick: suspend () -> ByteArray?) {
+        viewModelScope.launch {
+            val bytes = pick() ?: return@launch
+            val profile = repository.profiles.first().firstOrNull { it.id == profileId } ?: return@launch
+            pictureStore.replace(profile.pictureFile, bytes) { fileName -> repository.save(profile.copy(pictureFile = fileName)) }
+        }
+    }
 
     private fun BabyProfile.toUiState(): BirthdayUiState? {
         val birthday = birthday ?: return null

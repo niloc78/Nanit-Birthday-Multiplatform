@@ -26,6 +26,6 @@ val appModule = module {
         ProfileDetailsViewModel(profileId, get(), get(), get(), get())
     }
     viewModel { (profileId: String) ->
-        BirthdayViewModel(profileId, get(), get(), get(), Random.Default)
+        BirthdayViewModel(profileId, get(), get(), get(), get(), Random.Default)
     }
 }

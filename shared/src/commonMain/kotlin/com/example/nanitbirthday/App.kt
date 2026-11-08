@@ -1,5 +1,6 @@
 package com.example.nanitbirthday
 
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
@@ -17,7 +18,14 @@ import com.example.nanitbirthday.ui.profiles.ProfileListScreen
 fun App() {
     MaterialTheme {
         val navController = rememberNavController()
-        NavHost(navController = navController, startDestination = ProfileListRoute) {
+        NavHost(
+            navController = navController,
+            startDestination = ProfileListRoute,
+            enterTransition = { slideIntoContainer(SlideDirection.Start) },
+            exitTransition = { slideOutOfContainer(SlideDirection.Start) },
+            popEnterTransition = { slideIntoContainer(SlideDirection.End) },
+            popExitTransition = { slideOutOfContainer(SlideDirection.End) },
+        ) {
             composable<ProfileListRoute> {
                 ProfileListScreen(
                     onOpenProfile = { profileId ->

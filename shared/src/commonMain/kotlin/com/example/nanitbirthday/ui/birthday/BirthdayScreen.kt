@@ -3,6 +3,7 @@ package com.example.nanitbirthday.ui.birthday
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,6 +39,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -48,10 +54,17 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.example.nanitbirthday.domain.Age
+import com.example.nanitbirthday.ui.details.PicturePickerSheet
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.roundToInt
+import kotlin.math.sin
 import nanitbirthday.shared.generated.resources.Res
 import nanitbirthday.shared.generated.resources.baby_picture
 import nanitbirthday.shared.generated.resources.baby_placeholder
+import nanitbirthday.shared.generated.resources.change_picture
 import nanitbirthday.shared.generated.resources.close
+import nanitbirthday.shared.generated.resources.ic_camera_add
 import nanitbirthday.shared.generated.resources.months_old
 import nanitbirthday.shared.generated.resources.nanit_logo
 import nanitbirthday.shared.generated.resources.number_0
@@ -98,6 +111,8 @@ private val PictureMinSidePadding = 50.dp
 private val FrameWidth = 360.dp
 private val FrameHeight = 728.dp
 private val PictureToLogo = 15.dp
+private val CameraBadgeSize = 36.dp
+private const val CameraBadgeAngle = PI / 4
 private val CloseButtonPadding = 8.dp
 
 private val numerals = listOf(
@@ -117,15 +132,26 @@ fun BirthdayScreen(
     viewModel: BirthdayViewModel = koinViewModel { parametersOf(profileId) },
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    BirthdayScreen(state = state, onClose = onClose)
+    BirthdayScreen(
+        state = state,
+        onClose = onClose,
+        onPickFromGallery = viewModel::onPickFromGallery,
+        onTakePhoto = viewModel::onTakePhoto,
+    )
 }
 
 @Composable
-private fun BirthdayScreen(state: BirthdayUiState, onClose: () -> Unit) {
+private fun BirthdayScreen(
+    state: BirthdayUiState,
+    onClose: () -> Unit,
+    onPickFromGallery: () -> Unit,
+    onTakePhoto: () -> Unit,
+) {
+    var showPicturePicker by rememberSaveable { mutableStateOf(false) }
     val background = (state as? BirthdayUiState.Ready)?.theme?.background ?: MaterialTheme.colorScheme.background
     Box(modifier = Modifier.fillMaxSize().background(background)) {
         if (state is BirthdayUiState.Ready) {
-            BirthdayContent(state)
+            BirthdayContent(state = state, onChangePicture = { showPicturePicker = true })
         }
         IconButton(
             onClick = onClose,
@@ -138,10 +164,17 @@ private fun BirthdayScreen(state: BirthdayUiState, onClose: () -> Unit) {
             )
         }
     }
+    if (showPicturePicker) {
+        PicturePickerSheet(
+            onPickFromGallery = onPickFromGallery,
+            onTakePhoto = onTakePhoto,
+            onDismiss = { showPicturePicker = false },
+        )
+    }
 }
 
 @Composable
-private fun BirthdayContent(state: BirthdayUiState.Ready) {
+private fun BirthdayContent(state: BirthdayUiState.Ready, onChangePicture: () -> Unit) {
     Image(
         painter = painterResource(state.theme.illustration),
         contentDescription = null,
@@ -153,39 +186,46 @@ private fun BirthdayContent(state: BirthdayUiState.Ready) {
         val scale = minOf(1f, maxWidth / FrameWidth, maxHeight / FrameHeight)
         val density = LocalDensity.current
         CompositionLocalProvider(LocalDensity provides Density(density.density * scale, density.fontScale)) {
-            BirthdayCard(state)
+            BirthdayCard(state = state, onChangePicture = onChangePicture)
         }
     }
 }
 
 @Composable
-private fun BirthdayCard(state: BirthdayUiState.Ready) {
+private fun BirthdayCard(state: BirthdayUiState.Ready, onChangePicture: () -> Unit) {
     Layout(
         contents = listOf(
             { AgeHeader(name = state.name, age = state.age) },
             { BabyPicture(picturePath = state.picturePath, theme = state.theme) },
             { Image(painter = painterResource(Res.drawable.nanit_logo), contentDescription = null) },
+            { CameraBadge(theme = state.theme, onClick = onChangePicture) },
         ),
         modifier = Modifier.fillMaxSize(),
-    ) { (header, picture, logo), constraints ->
+    ) { (header, picture, logo, badge), constraints ->
         val loose = constraints.copy(minWidth = 0, minHeight = 0)
         val pictureSize = minOf(PictureSize.roundToPx(), constraints.maxWidth - 2 * PictureMinSidePadding.roundToPx())
         val headerPlaceable = header.first().measure(loose)
         val picturePlaceable = picture.first().measure(Constraints.fixed(pictureSize, pictureSize))
         val logoPlaceable = logo.first().measure(loose)
+        val badgePlaceable = badge.first().measure(loose)
         val pictureWithLogoHeight = pictureSize + PictureToLogo.roundToPx() + logoPlaceable.height
         val pictureY = maxOf(
             (constraints.maxHeight - pictureWithLogoHeight) / 2,
             HeaderMinTopGap.roundToPx() + headerPlaceable.height + PictureMinTopGap.roundToPx(),
         )
         val headerY = (pictureY - headerPlaceable.height) / 2
+        val pictureX = (constraints.maxWidth - pictureSize) / 2
+        val ringRadius = (pictureSize - RingStroke.toPx()) / 2
+        val badgeX = pictureX + pictureSize / 2 + ringRadius * cos(CameraBadgeAngle) - badgePlaceable.width / 2
+        val badgeY = pictureY + pictureSize / 2 - ringRadius * sin(CameraBadgeAngle) - badgePlaceable.height / 2
         layout(constraints.maxWidth, constraints.maxHeight) {
             headerPlaceable.placeRelative((constraints.maxWidth - headerPlaceable.width) / 2, headerY)
-            picturePlaceable.placeRelative((constraints.maxWidth - pictureSize) / 2, pictureY)
+            picturePlaceable.placeRelative(pictureX, pictureY)
             logoPlaceable.placeRelative(
                 (constraints.maxWidth - logoPlaceable.width) / 2,
                 pictureY + pictureSize + PictureToLogo.roundToPx(),
             )
+            badgePlaceable.placeRelative(badgeX.roundToInt(), badgeY.roundToInt())
         }
     }
 }
@@ -253,6 +293,19 @@ private fun BabyPicture(picturePath: String?, theme: BirthdayTheme) {
     }
 }
 
+@Composable
+private fun CameraBadge(theme: BirthdayTheme, onClick: () -> Unit) {
+    Image(
+        painter = painterResource(Res.drawable.ic_camera_add),
+        contentDescription = stringResource(Res.string.change_picture),
+        modifier = Modifier
+            .size(CameraBadgeSize)
+            .clip(CircleShape)
+            .background(theme.accent)
+            .clickable(role = Role.Button, onClick = onClick),
+    )
+}
+
 @Preview(name = "Figma frame", widthDp = 360, heightDp = 728)
 @Preview(name = "Small phone", widthDp = 360, heightDp = 640)
 @Preview(name = "Compact phone", widthDp = 320, heightDp = 568)
@@ -266,6 +319,8 @@ private fun BirthdayScreenFoxPreview() {
         BirthdayScreen(
             state = BirthdayUiState.Ready("Mia", Age.Months(5), null, BirthdayTheme.Fox),
             onClose = {},
+            onPickFromGallery = {},
+            onTakePhoto = {},
         )
     }
 }
@@ -277,6 +332,8 @@ private fun BirthdayScreenElephantPreview() {
         BirthdayScreen(
             state = BirthdayUiState.Ready("Alexander Benjamin", Age.Years(1), null, BirthdayTheme.Elephant),
             onClose = {},
+            onPickFromGallery = {},
+            onTakePhoto = {},
         )
     }
 }
@@ -288,6 +345,8 @@ private fun BirthdayScreenPelicanPreview() {
         BirthdayScreen(
             state = BirthdayUiState.Ready("Noa", Age.Years(13), null, BirthdayTheme.Pelican),
             onClose = {},
+            onPickFromGallery = {},
+            onTakePhoto = {},
         )
     }
 }

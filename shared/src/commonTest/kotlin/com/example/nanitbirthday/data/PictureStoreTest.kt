@@ -67,5 +67,20 @@ class PictureStoreTest {
         store().delete("missing")
     }
 
+    @Test
+    fun replaceStoresTheNewNameBeforeDeletingThePrevious() = runTest {
+        val store = store()
+        val previous = store.save(byteArrayOf(1))
+        var stored: String? = null
+
+        store.replace(previous, byteArrayOf(2)) { fileName ->
+            stored = fileName
+            assertTrue(SystemFileSystem.exists(Path(directory, previous)))
+        }
+
+        assertContentEquals(byteArrayOf(2), SystemFileSystem.source(Path(directory, stored!!)).buffered().use { it.readByteArray() })
+        assertFalse(SystemFileSystem.exists(Path(directory, previous)))
+    }
+
     private fun TestScope.store() = FilePictureStore(directory, StandardTestDispatcher(testScheduler))
 }

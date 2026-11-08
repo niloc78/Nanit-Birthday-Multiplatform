@@ -5,11 +5,16 @@ import com.example.nanitbirthday.data.BabyProfileRepository
 import com.example.nanitbirthday.data.PictureStore
 import com.example.nanitbirthday.domain.Age
 import com.example.nanitbirthday.domain.BabyProfile
+import com.example.nanitbirthday.platform.ImagePicker
+import dev.mokkery.MockMode
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.returns
 import dev.mokkery.every
+import dev.mokkery.everySuspend
 import dev.mokkery.matcher.any
 import dev.mokkery.mock
+import dev.mokkery.verify.VerifyMode
+import dev.mokkery.verifySuspend
 import kotlin.random.Random
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -20,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -41,12 +47,13 @@ class BirthdayViewModelTest {
     private val clock = mock<Clock> {
         every { now() } returns today.atStartOfDayIn(TimeZone.currentSystemDefault())
     }
-    private val pictureStore = mock<PictureStore> {
+    private val pictureStore = mock<PictureStore>(MockMode.autoUnit) {
         every { pathOf(any()) } calls { (fileName: String) -> "/pictures/$fileName" }
     }
-    private val repository = mock<BabyProfileRepository> {
+    private val repository = mock<BabyProfileRepository>(MockMode.autoUnit) {
         every { profiles } returns storedProfiles
     }
+    private val imagePicker = mock<ImagePicker>()
 
     @BeforeTest
     fun setUp() {
@@ -96,11 +103,36 @@ class BirthdayViewModelTest {
         }
     }
 
+    @Test
+    fun takenPhotoIsStoredSavedAndReplacesPreviousPicture() = runTest {
+        val bytes = byteArrayOf(1, 2, 3)
+        everySuspend { imagePicker.takePhoto() } returns bytes
+        everySuspend { pictureStore.save(bytes) } returns "new.jpg"
+
+        viewModel(Random(1)).onTakePhoto()
+        advanceUntilIdle()
+
+        verifySuspend { repository.save(profile.copy(pictureFile = "new.jpg")) }
+        verifySuspend { pictureStore.delete("mia.jpg") }
+    }
+
+    @Test
+    fun cancelledPickChangesNothing() = runTest {
+        everySuspend { imagePicker.pickFromGallery() } returns null
+
+        viewModel(Random(1)).onPickFromGallery()
+        advanceUntilIdle()
+
+        verifySuspend(VerifyMode.not) { pictureStore.save(any()) }
+        verifySuspend(VerifyMode.not) { repository.save(any()) }
+    }
+
     private fun viewModel(random: Random) = BirthdayViewModel(
         profileId = "baby-1",
         repository = repository,
         clock = clock,
         pictureStore = pictureStore,
+        imagePicker = imagePicker,
         random = random,
     )
 }

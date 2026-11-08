@@ -4,13 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.nanitbirthday.data.BabyProfileRepository
 import com.example.nanitbirthday.data.PictureStore
+import com.example.nanitbirthday.data.replace
 import com.example.nanitbirthday.domain.BabyProfile
 import com.example.nanitbirthday.platform.ImagePicker
 import kotlin.time.Clock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -30,8 +30,15 @@ class ProfileDetailsViewModel(
 
     init {
         viewModelScope.launch {
-            val stored = repository.profiles.first().firstOrNull { it.id == profileId }
-            show(stored ?: BabyProfile(id = profileId))
+            repository.profiles.collect { profiles ->
+                val stored = profiles.firstOrNull { it.id == profileId }
+                val current = profile
+                when {
+                    current == null -> show(stored ?: BabyProfile(id = profileId))
+                    stored != null && stored.pictureFile != current.pictureFile ->
+                        show(current.copy(pictureFile = stored.pictureFile))
+                }
+            }
         }
     }
 
@@ -62,10 +69,7 @@ class ProfileDetailsViewModel(
     private fun replacePicture(pick: suspend () -> ByteArray?) {
         viewModelScope.launch {
             val bytes = pick() ?: return@launch
-            val previous = profile?.pictureFile
-            val fileName = pictureStore.save(bytes)
-            edit { copy(pictureFile = fileName) }
-            previous?.let { pictureStore.delete(it) }
+            pictureStore.replace(profile?.pictureFile, bytes) { fileName -> edit { copy(pictureFile = fileName) } }
         }
     }
 
